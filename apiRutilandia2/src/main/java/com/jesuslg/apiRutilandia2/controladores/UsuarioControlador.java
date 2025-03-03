@@ -109,7 +109,7 @@ public class UsuarioControlador {
 	
 	//GET
 	//http://miserver:8080/api/usuarios/3(valor id)
-	@GetMapping("/{id}")
+	@GetMapping("/usuarios/{id}")
 	public Usuario buscarUsuario(@PathVariable Long id) {
 		return usuarioServicio.buscarPorId(id);
 	}
@@ -219,6 +219,61 @@ public class UsuarioControlador {
 
 	    return ResponseEntity.ok(usuarioDto);
 	}
+	
+	@PostMapping("/usuarios/loginAngular")
+	public ResponseEntity<Map<String, Object>> loginAngular(@RequestBody Usuario loginRequest) {
+	    String email = loginRequest.getEmail();
+	    String rawPassword = loginRequest.getContrasenia();
+
+	    Optional<Usuario> usuario = usuarioServicio.buscarPorEmail(email);
+
+	    if (usuario.isPresent() && contraseniaMetodo.matches(rawPassword, usuario.get().getContrasenia())) {
+	        String token = generateToken(usuario.get());
+
+	        // Construir la respuesta con el usuario y el token
+	        Map<String, Object> response = Map.of(
+	            "token", token,
+	            "usuario", usuario.get() // ✅ Incluimos el usuario en la respuesta
+	        );
+
+	        return ResponseEntity.ok(response);
+	    } else {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales incorrectas"));
+	    }
+	}
+	
+	@PutMapping("/usuarios/actualizarUsuarioAngular")
+	public ResponseEntity<String> actualizarUsuarioAngular(@RequestBody Usuario usuario) {
+	    if (usuario.getId() == null) {
+	        System.out.println("⚠️ Error: ID de usuario no proporcionado.");
+	        return ResponseEntity.badRequest().body("El ID del usuario es requerido");
+	    }
+
+	    Usuario usuarioExistente = usuarioServicio.buscarPorId(usuario.getId());
+
+	    if (usuarioExistente == null) {
+	        System.out.println("⚠️ Error: Usuario no encontrado en la base de datos.");
+	        return ResponseEntity.notFound().build();
+	    }
+
+	    if (usuario.getContrasenia() == null || usuario.getContrasenia().isEmpty()) {
+	        usuario.setContrasenia(usuarioExistente.getContrasenia()); // ✅ Mantiene la contraseña original
+	    } else {
+	        usuario.setContrasenia(contraseniaMetodo.encode(usuario.getContrasenia())); // ✅ Encripta si se envía una nueva
+	    }
+
+	    usuarioExistente.setNombre(usuario.getNombre());
+	    usuarioExistente.setApellidos(usuario.getApellidos());
+	    usuarioExistente.setEmail(usuario.getEmail());
+	    usuarioExistente.setRol(usuario.getRol());
+
+	    usuarioServicio.actualizarUsuario(usuarioExistente);
+
+	    System.out.println("✅ Usuario actualizado correctamente desde Angular.");
+	    return ResponseEntity.ok("Usuario actualizado correctamente desde Angular");
+	}
+
+
 	
 	
 	
